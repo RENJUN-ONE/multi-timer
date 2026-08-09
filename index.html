@@ -1,0 +1,1076 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>多计时器</title>
+<style>
+  :root {
+    --bg: #0f1117;
+    --card: #1a1d27;
+    --card-active: #22253a;
+    --border: #2a2d3a;
+    --accent: #5b8df9;
+    --accent-glow: rgba(91,141,249,.25);
+    --danger: #f55;
+    --danger-glow: rgba(255,85,85,.3);
+    --success: #4cdf8b;
+    --text: #e8e8ed;
+    --text2: #8b8fa3;
+    --radius: 14px;
+  }
+
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: -apple-system, "Segoe UI", "Noto Sans SC", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 24px 16px 40px;
+  }
+
+  /* ---------- header ---------- */
+  .header {
+    max-width: 1400px;
+    margin: 0 auto 28px;
+    text-align: center;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: .5px;
+    margin-bottom: 6px;
+  }
+  .header p { color: var(--text2); font-size: 14px; }
+
+  /* ---------- controls bar ---------- */
+  .controls {
+    max-width: 1400px;
+    margin: 0 auto 24px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    justify-content: center;
+  }
+  .controls label {
+    font-size: 14px;
+    color: var(--text2);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .controls input[type=number] {
+    width: 64px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 6px 8px;
+    font-size: 15px;
+    text-align: center;
+    -moz-appearance: textfield;
+  }
+  .controls input::-webkit-outer-spin-button,
+  .controls input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border: none;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: .2s;
+  }
+  .btn:active { transform: scale(.96); }
+  .btn-primary  { background: var(--accent); color: #fff; }
+  .btn-primary:hover { background: #4a7ce8; }
+  .btn-danger   { background: var(--danger); color: #fff; }
+  .btn-danger:hover  { background: #e04040; }
+  .btn-ghost    { background: transparent; border: 1px solid var(--border); color: var(--text2); }
+  .btn-ghost:hover   { border-color: var(--text2); color: var(--text); }
+  .btn-sm { padding: 5px 12px; font-size: 13px; }
+
+  /* ---------- sections row ---------- */
+  .sections-row {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: flex;
+    gap: 24px;
+    align-items: flex-start;
+  }
+  .section {
+    flex: 1;
+    min-width: 0;
+    margin-bottom: 28px;
+  }
+  @media (max-width: 1100px) {
+    .sections-row { flex-wrap: wrap; }
+    .section { flex: 1 1 calc(50% - 12px); }
+  }
+  @media (max-width: 700px) {
+    .sections-row { flex-direction: column; gap: 0; }
+    .section { flex: 1 1 100%; }
+  }
+  .section-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--text2);
+    margin-bottom: 12px;
+    padding-left: 2px;
+    letter-spacing: .5px;
+  }
+  .section-title.warning { color: #ffa726; }
+  .section-title.done { color: var(--success); }
+
+  /* ---------- grid ---------- */
+  .grid {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  /* ---------- timer card ---------- */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    position: relative;
+    transition: .3s;
+  }
+  .card.warning {
+    border-color: #ffa726;
+    box-shadow: 0 0 15px rgba(255, 167, 38, .2);
+  }
+  .card.alerting {
+    border-color: var(--danger);
+    box-shadow: 0 0 20px var(--danger-glow);
+  }
+  .card.alerting.pulsing {
+    animation: pulse 1s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    0%,100% { box-shadow: 0 0 20px var(--danger-glow); }
+    50%     { box-shadow: 0 0 40px var(--danger-glow); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .card.alerting.pulsing { animation: none; }
+  }
+
+  .card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .card-id {
+    background: var(--accent);
+    color: #fff;
+    font-weight: 700;
+    font-size: 13px;
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+  .card-id.warning { background: #ffa726; }
+  .card-id.alerting { background: var(--danger); }
+  .card-id:hover { opacity: .85; cursor: text; }
+  .card-remove {
+    background: none;
+    border: none;
+    color: var(--text2);
+    font-size: 18px;
+    cursor: pointer;
+    line-height: 1;
+    padding: 2px 6px;
+    border-radius: 6px;
+    transition: .2s;
+  }
+  .card-remove:hover { color: var(--danger); background: rgba(255,85,85,.1); }
+
+  .time-display {
+    font-size: 48px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    text-align: center;
+    letter-spacing: 2px;
+    margin-bottom: 6px;
+    line-height: 1.1;
+  }
+
+  .time-ms {
+    font-size: 16px;
+    font-weight: 400;
+    color: var(--text2);
+    text-align: center;
+    margin-bottom: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .warning-text {
+    color: #ffa726;
+    font-weight: 600;
+  }
+
+  .card-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+  }
+  .card-actions .btn { flex: 1; max-width: 110px; justify-content: center; }
+
+  /* ---------- alert banner ---------- */
+  .alert-banner {
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    background: var(--danger);
+    color: #fff;
+    text-align: center;
+    padding: 14px 20px;
+    font-size: 16px;
+    font-weight: 600;
+    z-index: 1000;
+    transform: translateY(-100%);
+    transition: transform .35s ease;
+    cursor: pointer;
+  }
+  .alert-banner.show { transform: translateY(0); }
+
+  /* ---------- empty state ---------- */
+  .empty {
+    text-align: center;
+    color: var(--text2);
+    padding: 60px 20px;
+    font-size: 15px;
+  }
+  .empty span { font-size: 40px; display: block; margin-bottom: 12px; }
+
+  /* ---------- sound badge ---------- */
+  .sound-toggle {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    cursor: pointer;
+    z-index: 500;
+    transition: .2s;
+  }
+  .sound-toggle:hover { border-color: var(--text2); }
+
+  /* ---------- search input ---------- */
+  .search-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .search-wrapper input {
+    width: 160px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    padding: 6px 10px;
+    font-size: 14px;
+    transition: border-color .2s;
+  }
+  .search-wrapper input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .search-wrapper input::placeholder {
+    color: var(--text2);
+  }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 768px) {
+    .time-display { font-size: 40px; }
+    .search-wrapper input { width: 140px; }
+  }
+  @media (max-width: 480px) {
+    .time-display { font-size: 32px; }
+    .controls { flex-direction: column; }
+    body { padding: 16px 10px 32px; }
+    .search-wrapper input { width: 100%; }
+  }
+</style>
+</head>
+<body>
+
+<div class="alert-banner" id="alertBanner" role="alert" onclick="dismissBanner()"></div>
+
+<div class="header">
+  <h1>⏱ 多计时器</h1>
+  <p>添加多个计时器同时计时，到达设定时间自动提醒</p>
+</div>
+
+<div class="controls">
+  <label>
+    目标时间
+    <input type="number" id="targetMin" value="0" min="0" max="999" oninput="syncTarget()"> 分
+    <input type="number" id="targetSec" value="60" min="0" max="59" oninput="syncTarget()"> 秒
+  </label>
+  <label>
+    提前提醒
+    <input type="number" id="warningMin" value="0" min="0" max="60" oninput="syncWarning()"> 分
+    <input type="number" id="warningSec" value="30" min="0" max="59" oninput="syncWarning()"> 秒
+  </label>
+  <button class="btn btn-primary" onclick="addTimer()">+ 添加计时器</button>
+  <button class="btn btn-danger btn-sm" id="resetAllBtn" onclick="resetAll()">全部重置</button>
+  <div class="search-wrapper">
+    🔍
+    <input type="text" id="searchInput" placeholder="搜索计时器..." oninput="filterTimers()">
+  </div>
+</div>
+
+<div class="sections-row">
+  <div class="section" id="activeSection">
+    <h2 class="section-title">正在计时</h2>
+    <div class="grid" id="gridActive"></div>
+  </div>
+
+  <div class="section" id="warningSection">
+    <h2 class="section-title warning">⚠️ 即将到时</h2>
+    <div class="grid" id="gridWarning"></div>
+  </div>
+
+  <div class="section" id="doneSection">
+    <h2 class="section-title done">✅ 已到时</h2>
+    <div class="grid" id="gridDone"></div>
+  </div>
+</div>
+
+<div class="empty" id="empty">
+  <span>🕐</span>
+  点击「添加计时器」开始
+</div>
+
+<button class="sound-toggle" id="soundBtn" onclick="toggleSound()" title="开关提示音" aria-label="开关提示音" aria-pressed="true">🔔</button>
+
+<script>
+// ─── state ───
+let nextId = 1;
+let timers = [];            // { id, name, elapsed, running, interval, alerted }
+let targetSeconds = 60;     // shared target
+let warningSeconds = 30;    // warning threshold (30 seconds default)
+let soundOn = true;
+let saveTimer = null;
+
+// ─── persistence ───
+const STORAGE_KEY = 'multi-timer-state';
+
+function save() {
+  const data = {
+    nextId,
+    targetSeconds,
+    warningSeconds,
+    soundOn,
+    timers: timers.map(t => ({
+      id: t.id,
+      name: t.name,
+      elapsed: t.elapsed,
+      running: t.running,
+      deadline: t.deadline || null,
+      alerted: t.alerted,
+      reachedAt: t.reachedAt || null
+    }))
+  };
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch(e) {}
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    nextId = data.nextId || 1;
+    targetSeconds = data.targetSeconds || 60;
+    warningSeconds = data.warningSeconds || 30;
+    soundOn = data.soundOn !== false;
+    timers = (data.timers || []).map(t => ({
+      id: t.id,
+      name: t.name || `#${t.id}`,
+      elapsed: t.elapsed || 0,
+      running: t.running || false,
+      deadline: t.deadline || null,
+      alerted: t.alerted || false,
+      reachedAt: t.reachedAt || null
+    }));
+    // timers that were running when the page closed: recompute elapsed from the
+    // deadline so the time spent with the page closed is counted
+    const now = Date.now();
+    timers.forEach(t => {
+      if (t.running && t.deadline) {
+        t.elapsed = targetSeconds - (t.deadline - now) / 1000;
+      }
+      if (t.running && !t.alerted && t.elapsed >= targetSeconds) {
+        t.alerted = true;
+        t.reachedAt = t.deadline || now;
+      }
+    });
+    // rebuild in-memory alert state so the banner can be dismissed after refresh
+    alertedIds.clear();
+    timers.forEach(t => { if (t.alerted) alertedIds.add(t.id); });
+    if (alertedIds.size > 0) updateAlertBanner();
+    // update UI
+    document.getElementById('targetMin').value = Math.floor(targetSeconds / 60);
+    document.getElementById('targetSec').value = targetSeconds % 60;
+    document.getElementById('warningMin').value = Math.floor(warningSeconds / 60);
+    document.getElementById('warningSec').value = warningSeconds % 60;
+    document.getElementById('soundBtn').textContent = soundOn ? '🔔' : '🔕';
+    document.getElementById('soundBtn').setAttribute('aria-pressed', soundOn ? 'true' : 'false');
+  } catch(e) {}
+}
+
+function startSaveLoop() {
+  if (saveTimer) return;
+  saveTimer = setInterval(save, 1000);
+}
+
+function stopSaveLoop() {
+  if (timers.every(t => !t.running)) {
+    clearInterval(saveTimer);
+    saveTimer = null;
+    save();
+  }
+}
+
+// ─── speech ───
+let speechQueue = 0;
+
+function speak(text) {
+  if (!soundOn || !('speechSynthesis' in window)) return;
+  if (!text) return;
+  // allow up to 3 utterances in queue to prevent unbounded growth
+  if (speechQueue >= 3) return;
+  speechQueue++;
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'zh-CN';
+  u.rate = 1;
+  u.onend = () => { speechQueue = Math.max(0, speechQueue - 1); };
+  u.onerror = () => { speechQueue = Math.max(0, speechQueue - 1); };
+  speechSynthesis.speak(u);
+}
+
+// ─── audio context (lazy, with autoplay policy fix) ───
+let audioCtx;
+
+function ensureAudio() {
+  const Ctx = window.AudioContext || window.webkitAudioContext;
+  if (!Ctx) return;
+  try {
+    if (!audioCtx) audioCtx = new Ctx();
+    // resume() fixes browsers suspending AudioContext due to autoplay policy
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  } catch(e) {}
+}
+
+async function beep(freq, duration) {
+  if (!soundOn) return;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    if (!audioCtx) audioCtx = new Ctx();
+    if (audioCtx.state === 'suspended') {
+      try { await audioCtx.resume(); } catch(e) { return; }
+    }
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+    osc.frequency.value = freq;
+    osc.type = 'sine';
+    gain.gain.setValueAtTime(0.35, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration / 1000);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration / 1000);
+  } catch(e) {}
+}
+
+function alertSound() {
+  beep(880, 150);
+  setTimeout(() => beep(1100, 150), 180);
+  setTimeout(() => beep(880, 250), 380);
+}
+
+// ─── helpers ───
+function fmt(sec) {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  if (h > 0) {
+    return String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+  }
+  return String(m).padStart(2,'0') + ':' + String(s).padStart(2,'0');
+}
+
+function fmtMs(sec) {
+  return '.' + String(Math.floor((sec % 1) * 100)).padStart(2,'0');
+}
+
+function getTarget() {
+  const m = parseInt(document.getElementById('targetMin').value) || 0;
+  const s = parseInt(document.getElementById('targetSec').value) || 0;
+  const total = m * 60 + s;
+  return Math.max(1, total);
+}
+
+function updateTargetDisplay() {
+  const t = getTarget();
+  document.getElementById('targetMin').value = Math.floor(t / 60);
+  document.getElementById('targetSec').value = t % 60;
+}
+
+function syncTarget() {
+  targetSeconds = getTarget();
+  updateTargetDisplay();
+  // update target text and alert state on all existing cards
+  timers.forEach(t => {
+    // keep the same progress for running timers, only move the deadline
+    if (t.running && t.deadline) {
+      t.deadline = Date.now() + Math.max(0, targetSeconds - t.elapsed) * 1000;
+    }
+    checkReached(t);
+    updateCard(t);
+  });
+  applySort();
+  save();
+}
+
+function syncWarning() {
+  const m = parseInt(document.getElementById('warningMin').value) || 0;
+  const s = parseInt(document.getElementById('warningSec').value) || 0;
+  warningSeconds = Math.max(0, m * 60 + s);
+  applySort();
+  save();
+}
+
+// ─── request notification permission (on user gesture) ───
+function requestNotificationPermission() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+// ─── timer CRUD ───
+function addTimer() {
+  requestNotificationPermission();
+  ensureAudio();
+  targetSeconds = getTarget();
+  updateTargetDisplay();
+  const newId = nextId++;
+  timers.push({ id: newId, name: `#${newId}`, elapsed: 0, running: false, deadline: null, alerted: false, reachedAt: null });
+  save();
+  render();
+}
+
+function removeTimer(id) {
+  timers = timers.filter(t => t.id !== id);
+  // stop alert state if the removed timer was the one alerting
+  alertedIds.delete(id);
+  if (alertedIds.size === 0) dismissBanner(); else updateAlertBanner();
+  save();
+  stopTickIfIdle();
+  stopSaveLoop();
+  render();
+}
+
+function checkReached(t) {
+  if (!t.alerted && t.elapsed >= targetSeconds) {
+    t.alerted = true;
+    t.reachedAt = Date.now();
+    triggerAlert(t.id);
+    return true;
+  }
+  return false;
+}
+
+// single shared tick instead of one interval per running timer
+let tickInterval = null;
+
+function ensureTick() {
+  if (tickInterval) return;
+  tickInterval = setInterval(tick, 50);
+}
+
+function stopTickIfIdle() {
+  if (tickInterval && timers.every(t => !t.running)) {
+    clearInterval(tickInterval);
+    tickInterval = null;
+  }
+}
+
+function tick() {
+  const now = Date.now();
+  for (const t of timers) {
+    if (!t.running) continue;
+    t.elapsed = targetSeconds - (t.deadline - now) / 1000;
+    checkReached(t);
+    updateCard(t);
+  }
+  applySort();
+}
+
+function startTimer(id) {
+  const t = timers.find(t => t.id === id);
+  if (!t || t.running) return;
+  targetSeconds = getTarget();
+  t.running = true;
+  // reuse a restored deadline (page was closed and reopened) or create a new one
+  if (!t.deadline) {
+    t.deadline = Date.now() + Math.max(0, targetSeconds - t.elapsed) * 1000;
+  }
+  // update button only, no full re-render
+  updateCard(t);
+  ensureTick();
+  startSaveLoop();
+}
+
+function pauseTimer(id) {
+  const t = timers.find(t => t.id === id);
+  if (!t || !t.running) return;
+  t.running = false;
+  if (t.deadline) {
+    t.elapsed = targetSeconds - (t.deadline - Date.now()) / 1000;
+    t.deadline = null;
+  }
+  checkReached(t);
+  updateCard(t);
+  save();
+  stopTickIfIdle();
+  stopSaveLoop();
+}
+
+function resetTimer(id) {
+  const t = timers.find(t => t.id === id);
+  if (!t) return;
+  t.elapsed = 0;
+  t.running = false;
+  t.deadline = null;
+  t.alerted = false;
+  t.reachedAt = null;
+  alertedIds.delete(id);
+  // refresh banner text (or stop alert loop if no more alerted timers)
+  if (alertedIds.size === 0) dismissBanner(); else updateAlertBanner();
+  updateCard(t);
+  applySort();
+  save();
+  stopTickIfIdle();
+  stopSaveLoop();
+}
+
+// ─── reset all (two-click confirmation) ───
+let resetConfirmTimer = null;
+
+function resetAll() {
+  const btn = document.getElementById('resetAllBtn');
+  if (!btn.dataset.confirm) {
+    // first click — enter confirm state
+    btn.dataset.confirm = '1';
+    btn.textContent = '确认重置？';
+    btn.classList.remove('btn-danger');
+    btn.classList.add('btn-ghost');
+    resetConfirmTimer = setTimeout(() => cancelResetConfirm(), 3000);
+    return;
+  }
+  // second click — execute reset
+  cancelResetConfirm();
+  alertedIds.clear();
+  timers.forEach(t => {
+    t.elapsed = 0;
+    t.running = false;
+    t.deadline = null;
+    t.alerted = false;
+    t.reachedAt = null;
+  });
+  dismissBanner();
+  save();
+  stopTickIfIdle();
+  stopSaveLoop();
+  render();
+}
+
+function cancelResetConfirm() {
+  clearTimeout(resetConfirmTimer);
+  resetConfirmTimer = null;
+  const btn = document.getElementById('resetAllBtn');
+  delete btn.dataset.confirm;
+  btn.textContent = '全部重置';
+  btn.classList.remove('btn-ghost');
+  btn.classList.add('btn-danger');
+}
+
+// ─── alerting ───
+let alertBeepLoop = null;
+const alertedIds = new Set();
+
+function buildAlertSpeech() {
+  const names = [...alertedIds]
+    .map(id => timers.find(t => t.id === id))
+    .filter(Boolean)
+    .map(t => t.name);
+  if (names.length === 0) return '';
+  if (names.length === 1) return `${names[0]}，时间到`;
+  return names.join('、') + '，全部时间到';
+}
+
+function updateAlertBanner() {
+  const banner = document.getElementById('alertBanner');
+  if (!banner) return;
+  if (alertedIds.size === 0) {
+    banner.classList.remove('show');
+    return;
+  }
+  const m = Math.floor(targetSeconds / 60);
+  const s = targetSeconds % 60;
+  const allNames = [...alertedIds].map(id => {
+    const at = timers.find(t => t.id === id);
+    return at ? at.name : `#${id}`;
+  });
+  banner.textContent = `🔔 ${allNames.join('、')} 到达 ${m > 0 ? m + '分' : ''}${s}秒！点击关闭`;
+  banner.classList.add('show');
+}
+
+function triggerAlert(id) {
+  const t = timers.find(t => t.id === id);
+  const label = t ? t.name : `#${id}`;
+  alertedIds.add(id);
+  // start persistent beep loop + speech (or just update banner)
+  if (!alertBeepLoop) {
+    alertSound();
+    speak(buildAlertSpeech());
+    alertBeepLoop = setInterval(() => {
+      alertSound();
+      speak(buildAlertSpeech());
+    }, 3000);
+  } else {
+    // loop already running — speak the newly triggered timer immediately
+    speak(buildAlertSpeech());
+  }
+  updateAlertBanner();
+  // card pulse (alerting class handled by updateCard)
+  if (t) updateCard(t);
+  // browser notification
+  if ('Notification' in window && Notification.permission === 'granted') {
+    try {
+      new Notification(`⏰ 「${label}」到时`, { body: `已达到 ${fmt(targetSeconds)}` });
+    } catch(e) {}
+  }
+  save();
+}
+
+function dismissBanner() {
+  document.getElementById('alertBanner').classList.remove('show');
+  alertedIds.clear();
+  // stop persistent beep and speech
+  if (alertBeepLoop) {
+    clearInterval(alertBeepLoop);
+    alertBeepLoop = null;
+  }
+  if ('speechSynthesis' in window) speechSynthesis.cancel();
+  speechQueue = 0;
+  // stop pulse animations on done cards (keep static alert styling)
+  timers.forEach(t => updateCard(t));
+}
+
+// ─── sort/group state ───
+let lastActiveOrder = [];
+let lastWarningOrder = [];
+let lastDoneOrder = [];
+
+// ─── render (full rebuild — used only for add/remove/resetAll) ───
+function render() {
+  // remove DOM nodes for timers that no longer exist
+  document.querySelectorAll('#gridActive .card, #gridWarning .card, #gridDone .card').forEach(card => {
+    const id = parseInt(card.id.replace('card-', ''), 10);
+    if (!timers.some(t => t.id === id)) card.remove();
+  });
+  // force a full re-sort/re-append (order caches may be stale after add/remove)
+  lastActiveOrder = [];
+  lastWarningOrder = [];
+  lastDoneOrder = [];
+  applySort();
+  // refresh classes/state on every existing card (keeps alert/pulse consistent)
+  timers.forEach(t => updateCard(t));
+}
+
+// ─── group timers into "正在计时" / "即将到时" / "已到时" and keep each sorted ───
+function applySort() {
+  // 计算每个计时器的剩余时间
+  const activeTimers = timers.filter(t => !t.alerted);
+  const done = timers.filter(t => t.alerted)
+    .sort((a, b) => (a.reachedAt || 0) - (b.reachedAt || 0)); // 先到达的在前
+
+  // 将未到时的计时器分为"即将到时"和"正在计时"两组
+  const warning = [];
+  const active = [];
+
+  activeTimers.forEach(t => {
+    const remaining = targetSeconds - t.elapsed;
+    if (remaining <= warningSeconds) {
+      warning.push(t);
+    } else {
+      active.push(t);
+    }
+  });
+
+  // 按剩余时间排序（剩余时间少的在前）
+  warning.sort((a, b) => (targetSeconds - a.elapsed) - (targetSeconds - b.elapsed));
+  active.sort((a, b) => (targetSeconds - a.elapsed) - (targetSeconds - b.elapsed));
+
+  const activeIds = active.map(t => t.id);
+  const warningIds = warning.map(t => t.id);
+  const doneIds = done.map(t => t.id);
+
+  // only touch the DOM when the order actually changed
+  if (activeIds.join(',') !== lastActiveOrder.join(',')) {
+    const gridActive = document.getElementById('gridActive');
+    active.forEach(t => gridActive.appendChild(getOrBuildCard(t)));
+    lastActiveOrder = activeIds;
+  }
+  if (warningIds.join(',') !== lastWarningOrder.join(',')) {
+    const gridWarning = document.getElementById('gridWarning');
+    warning.forEach(t => gridWarning.appendChild(getOrBuildCard(t)));
+    lastWarningOrder = warningIds;
+  }
+  if (doneIds.join(',') !== lastDoneOrder.join(',')) {
+    const gridDone = document.getElementById('gridDone');
+    done.forEach(t => gridDone.appendChild(getOrBuildCard(t)));
+    lastDoneOrder = doneIds;
+  }
+
+  document.getElementById('activeSection').style.display = active.length ? '' : 'none';
+  document.getElementById('warningSection').style.display = warning.length ? '' : 'none';
+  document.getElementById('doneSection').style.display = done.length ? '' : 'none';
+  document.getElementById('empty').style.display = timers.length ? 'none' : 'block';
+
+  // 应用搜索过滤
+  filterTimers();
+}
+
+function getOrBuildCard(t) {
+  return document.getElementById('card-' + t.id) || buildCard(t);
+}
+
+function buildCard(t) {
+  const remaining = Math.max(0, targetSeconds - t.elapsed);
+  const isWarning = !t.alerted && remaining <= warningSeconds;
+
+  const div = document.createElement('div');
+  div.className = 'card' + (t.alerted ? ' alerting' : '') + (t.alerted && alertedIds.has(t.id) ? ' pulsing' : '') + (isWarning ? ' warning' : '');
+  div.id = 'card-' + t.id;
+
+  const reached = t.elapsed >= targetSeconds;
+
+  div.innerHTML = `
+    <div class="card-top">
+      <span class="card-id ${t.alerted ? 'alerting' : ''}" data-part="badge" onclick="startRename(${t.id})" title="点击编辑名称"></span>
+      <button class="card-remove" onclick="removeTimer(${t.id})" title="删除">×</button>
+    </div>
+    <div class="time-display" data-part="time">${fmt(t.elapsed)}</div>
+    <div class="time-ms" data-part="ms">${fmtMs(t.elapsed)}</div>
+    <div data-part="target" class="${isWarning ? 'warning-text' : ''}" style="text-align:center;margin-bottom:14px;font-size:13px;color:${reached ? 'var(--danger)' : isWarning ? '#ffa726' : 'var(--text2)'}">
+      ${reached ? '✅ 已到达目标' : isWarning ? '⚠️ 即将到时 ' + fmt(remaining) : '距目标 ' + fmt(remaining)}
+    </div>
+    <div class="card-actions" data-part="actions">
+      ${t.running
+        ? `<button class="btn btn-ghost btn-sm" data-action="pause" onclick="pauseTimer(${t.id})">⏸ 暂停</button>`
+        : `<button class="btn btn-primary btn-sm" data-action="start" onclick="startTimer(${t.id})">▶ 开始</button>`
+      }
+      <button class="btn btn-ghost btn-sm" onclick="resetTimer(${t.id})">↺ 重置</button>
+    </div>`;
+  // set name via textContent to avoid HTML injection
+  div.querySelector('[data-part="badge"]').textContent = t.name;
+  return div;
+}
+
+// ─── targeted card update (avoids full DOM rebuild) ───
+function updateCard(t) {
+  const card = document.getElementById('card-' + t.id);
+  if (!card) return;
+
+  const reached = t.elapsed >= targetSeconds;
+  const remaining = Math.max(0, targetSeconds - t.elapsed);
+  const isWarning = !t.alerted && remaining <= warningSeconds;
+
+  // update card alert state (pulse only while the alert is still active)
+  card.classList.toggle('alerting', t.alerted);
+  card.classList.toggle('pulsing', t.alerted && alertedIds.has(t.id));
+  card.classList.toggle('warning', isWarning);
+
+  // update time display (only touch DOM when the text changes)
+  const timeEl = card.querySelector('[data-part="time"]');
+  const timeText = fmt(t.elapsed);
+  if (timeEl && timeEl.textContent !== timeText) timeEl.textContent = timeText;
+
+  // update milliseconds
+  const msEl = card.querySelector('[data-part="ms"]');
+  const msText = fmtMs(t.elapsed);
+  if (msEl && msEl.textContent !== msText) msEl.textContent = msText;
+
+  // update target text
+  const targetEl = card.querySelector('[data-part="target"]');
+  if (targetEl) {
+    const targetText = reached ? '✅ 已到达目标' : isWarning ? '⚠️ 即将到时 ' + fmt(remaining) : '距目标 ' + fmt(remaining);
+    targetEl.style.color = reached ? 'var(--danger)' : isWarning ? '#ffa726' : 'var(--text2)';
+    targetEl.classList.toggle('warning-text', isWarning);
+    if (targetEl.textContent !== targetText) targetEl.textContent = targetText;
+  }
+
+  // update badge alert class and text
+  const badge = card.querySelector('[data-part="badge"]');
+  if (badge) {
+    badge.classList.toggle('alerting', t.alerted);
+    badge.classList.toggle('warning', isWarning);
+    if (!badge.querySelector('input')) badge.textContent = t.name;
+  }
+
+  // update buttons (only rebuild when running state changes)
+  const actionsEl = card.querySelector('[data-part="actions"]');
+  if (actionsEl) {
+    const startBtn = actionsEl.querySelector('[data-action="start"]');
+    const pauseBtn = actionsEl.querySelector('[data-action="pause"]');
+    const hasStart = !!startBtn;
+    const hasPause = !!pauseBtn;
+
+    if (t.running && hasStart) {
+      // switch to pause button
+      const newBtn = document.createElement('button');
+      newBtn.className = 'btn btn-ghost btn-sm';
+      newBtn.setAttribute('data-action', 'pause');
+      newBtn.setAttribute('onclick', `pauseTimer(${t.id})`);
+      newBtn.textContent = '⏸ 暂停';
+      startBtn.replaceWith(newBtn);
+    } else if (!t.running && hasPause) {
+      // switch to start button
+      const newBtn = document.createElement('button');
+      newBtn.className = 'btn btn-primary btn-sm';
+      newBtn.setAttribute('data-action', 'start');
+      newBtn.setAttribute('onclick', `startTimer(${t.id})`);
+      newBtn.textContent = '▶ 开始';
+      pauseBtn.replaceWith(newBtn);
+    }
+  }
+}
+
+// ─── sound toggle ───
+function toggleSound() {
+  soundOn = !soundOn;
+  document.getElementById('soundBtn').textContent = soundOn ? '🔔' : '🔕';
+  document.getElementById('soundBtn').setAttribute('aria-pressed', soundOn ? 'true' : 'false');
+  if (soundOn) ensureAudio();
+  save();
+}
+
+// ─── rename timer ───
+function startRename(id) {
+  const t = timers.find(t => t.id === id);
+  if (!t) return;
+  const card = document.getElementById('card-' + id);
+  if (!card) return;
+  const badge = card.querySelector('[data-part="badge"]');
+  if (!badge || badge.querySelector('input')) return; // already editing
+
+  const remaining = Math.max(0, targetSeconds - t.elapsed);
+  const isWarning = !t.alerted && remaining <= warningSeconds;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.value = t.name;
+  input.maxLength = 20;
+  input.style.cssText = `
+    background: var(--accent); color: #fff; border: none; outline: none;
+    font-size: 13px; font-weight: 700; padding: 2px 6px; border-radius: 20px;
+    width: ${Math.max(60, badge.offsetWidth)}px; text-align: center;
+    font-family: inherit;
+  `;
+  if (t.alerted) input.style.background = 'var(--danger)';
+  else if (isWarning) input.style.background = '#ffa726';
+
+  // commit and restore badge
+  const commit = () => {
+    const newName = input.value.trim();
+    if (newName) t.name = newName;
+    save();
+    badge.textContent = t.name;
+    badge.onclick = () => startRename(id);
+  };
+
+  input.addEventListener('blur', commit);
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); input.blur(); }
+    if (e.key === 'Escape') { input.value = t.name; input.blur(); }
+  });
+
+  badge.textContent = '';
+  badge.onclick = null;
+  badge.appendChild(input);
+  input.focus();
+  input.select();
+}
+
+// ─── init: load persisted state and render ───
+load();
+render();
+// resume any timers that were running before page refresh
+timers.forEach(t => {
+  if (t.running) {
+    t.running = false;
+    startTimer(t.id);
+  }
+});
+
+// ─── search/filter ───
+function filterTimers() {
+  const query = document.getElementById('searchInput').value.trim().toLowerCase();
+  const cards = document.querySelectorAll('.card');
+  let visibleCount = 0;
+
+  cards.forEach(card => {
+    const badge = card.querySelector('[data-part="badge"]');
+    if (!badge) return;
+    const name = badge.textContent.toLowerCase();
+    const matches = !query || name.includes(query);
+    card.style.display = matches ? '' : 'none';
+    if (matches) visibleCount++;
+  });
+
+  // 更新空状态提示
+  const emptyEl = document.getElementById('empty');
+  if (emptyEl) {
+    if (query && visibleCount === 0) {
+      emptyEl.style.display = 'block';
+      emptyEl.innerHTML = '<span>🔍</span>未找到匹配的计时器';
+    } else if (timers.length === 0) {
+      emptyEl.style.display = 'block';
+      emptyEl.innerHTML = '<span>🕐</span>点击「添加计时器」开始';
+    } else {
+      emptyEl.style.display = 'none';
+    }
+  }
+
+  // 检查每个section是否有可见的卡片，如果没有则隐藏section
+  ['activeSection', 'warningSection', 'doneSection'].forEach(sectionId => {
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+    const grid = section.querySelector('.grid');
+    if (!grid) return;
+    const hasVisibleCards = Array.from(grid.querySelectorAll('.card')).some(card => card.style.display !== 'none');
+    section.style.display = hasVisibleCards ? '' : 'none';
+  });
+}
+</script>
+</body>
+</html>
